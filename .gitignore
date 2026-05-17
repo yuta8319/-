@@ -1,0 +1,12 @@
+# 環境変数（絶対にGitHubにあげない）
+.env.local
+.env
+
+# Next.js
+.next/
+out/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
