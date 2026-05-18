@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 
-// ─── 定数 ──────────────────────────────────────────────────
 const COLORS = {
   sakura:'#F2A7BB', mint:'#7DD4C0', sky:'#7EC8E3', sun:'#FFD166',
   coral:'#FF6B6B', navy:'#1A2B4A', cream:'#FFF8F2', white:'#FFFFFF',
@@ -60,7 +59,6 @@ function applyFilters(events,{selectedAreas,selectedTargets,selectedCategories,f
   });
 }
 
-// ─── メインコンポーネント ────────────────────────────────
 export default function App() {
   const now = new Date();
   const [view,setView]               = useState('calendar');
@@ -76,7 +74,6 @@ export default function App() {
   const [openAreaGroup,setOpenAreaGroup] = useState(null);
   const [favorites,setFavorites]       = useState([]);
 
-  // フィルター
   const [selectedAreas,setSelectedAreas]           = useState([]);
   const [selectedTargets,setSelectedTargets]       = useState([]);
   const [selectedCategories,setSelectedCategories] = useState([]);
@@ -84,10 +81,8 @@ export default function App() {
   const [indoorOnly,setIndoorOnly] = useState(false);
   const [outdoorOnly,setOutdoorOnly] = useState(false);
 
-  // ── データ取得 ─────────────────────────────────────────
   useEffect(()=>{
     fetchEvents();
-    // お気に入りをlocalStorageから復元
     try {
       const saved = localStorage.getItem('favorites');
       if(saved) setFavorites(JSON.parse(saved));
@@ -111,7 +106,6 @@ export default function App() {
 
   useEffect(()=>{ fetchEvents(); },[currentMonth, currentYear]);
 
-  // ── ロジック ──────────────────────────────────────────
   const filterState = {selectedAreas,selectedTargets,selectedCategories,freeOnly,indoorOnly,outdoorOnly};
   const filteredEvents = useMemo(()=>applyFilters(events,filterState),
     [events,selectedAreas,selectedTargets,selectedCategories,freeOnly,indoorOnly,outdoorOnly]);
@@ -146,7 +140,6 @@ export default function App() {
   const mapEvents = mapDate ? getEventsForDay(mapDate) : [];
   const favEvents = events.filter(ev=>favorites.includes(ev.id));
 
-  // ── レンダリング ─────────────────────────────────────
   return (
     <div style={{fontFamily:"'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif",
       background:COLORS.cream,minHeight:'100vh',maxWidth:430,margin:'0 auto',
@@ -173,7 +166,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* フィルターパネル */}
         {showFilters&&(
           <div style={{background:'rgba(255,255,255,0.97)',borderRadius:16,padding:14,
             marginTop:10,boxShadow:'0 4px 24px rgba(0,0,0,0.12)',maxHeight:'72vh',overflowY:'auto'}}>
@@ -265,7 +257,6 @@ export default function App() {
         ))}
       </div>
 
-      {/* コンテンツ */}
       <div style={{paddingBottom:90}}>
         {loading&&<LoadingView/>}
         {error&&<ErrorView message={error} onRetry={fetchEvents}/>}
@@ -288,6 +279,7 @@ export default function App() {
             getEventsForDay={getEventsForDay} mapDate={mapDate} setMapDate={setMapDate}
             mapEvents={mapEvents} favorites={favorites} toggleFav={toggleFav}
             setShowDetail={setShowDetail} firstDay={firstDay}
+            filteredEvents={filteredEvents}
           />
         )}
         {!loading&&!error&&view==='favorites'&&(
@@ -296,13 +288,11 @@ export default function App() {
         )}
       </div>
 
-      {/* 詳細モーダル */}
       {showDetail&&(
         <DetailModal event={showDetail} favorites={favorites}
           toggleFav={toggleFav} onClose={()=>setShowDetail(null)}/>
       )}
 
-      {/* ボトムナビ */}
       <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',
         width:'100%',maxWidth:430,background:'rgba(255,255,255,0.96)',
         backdropFilter:'blur(10px)',borderTop:`1px solid ${COLORS.lightGray}`,
@@ -322,7 +312,6 @@ export default function App() {
   );
 }
 
-// ─── カレンダービュー ────────────────────────────────────
 function CalendarView({currentYear,currentMonth,setCurrentYear,setCurrentMonth,
   filteredEvents,getEventsForDay,selectedDate,setSelectedDate,selectedDateEvents,
   favorites,toggleFav,setShowDetail,activeFilterCount,days,firstDay}){
@@ -424,41 +413,64 @@ function CalendarView({currentYear,currentMonth,setCurrentYear,setCurrentMonth,
   );
 }
 
-// ─── マップビュー ────────────────────────────────────────
+// ─── マップビュー（Google Maps Embed API使用）────────────
 function MapView({currentYear,currentMonth,getEventsForDay,mapDate,setMapDate,
-  mapEvents,favorites,toggleFav,setShowDetail,firstDay}){
-  const mapsKey=process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+  mapEvents,favorites,toggleFav,setShowDetail,firstDay,filteredEvents}){
 
-  // マップURLを生成（Google Maps Embed API）
-  const mapSrc = mapDate && mapEvents.length>0
-    ? `https://www.google.com/maps/embed/v1/search?key=${mapsKey}&q=${encodeURIComponent(
-        mapEvents.map(e=>e.place).join('|')
-      )}&language=ja`
-    : null;
+  const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
-  // 日付選択バー（イベントある日だけ目立たせる）
-  const eventDays=Array.from({length:14},(_,i)=>{
-    const d=new Date(currentYear,currentMonth,new Date().getDate()+i);
+  // 選択された日のイベントの座標からマップURLを生成
+  const getMapUrl = () => {
+    if (!mapDate || mapEvents.length === 0) return null;
+
+    // 座標があるイベントを優先
+    const evWithCoords = mapEvents.filter(ev => ev.lat && ev.lng);
+
+    if (evWithCoords.length === 1) {
+      // 1件の場合はその場所を中心に表示
+      return `https://www.google.com/maps/embed/v1/place?key=${mapsKey}&q=${evWithCoords[0].lat},${evWithCoords[0].lng}&zoom=15&language=ja`;
+    } else if (evWithCoords.length > 1) {
+      // 複数件の場合は検索で表示
+      const query = encodeURIComponent(evWithCoords.map(e => e.place).join(' OR '));
+      return `https://www.google.com/maps/embed/v1/search?key=${mapsKey}&q=${query}&language=ja`;
+    } else {
+      // 座標なしの場合は会場名で検索
+      const query = encodeURIComponent(mapEvents[0].place + ' ' + mapEvents[0].area);
+      return `https://www.google.com/maps/embed/v1/search?key=${mapsKey}&q=${query}&language=ja`;
+    }
+  };
+
+  const mapSrc = getMapUrl();
+
+  // 今日から14日分の日付を表示
+  const dateButtons = Array.from({length:14}, (_,i) => {
+    const d = new Date(currentYear, currentMonth, new Date().getDate() + i);
     return {
-      day:d.getDate(), month:d.getMonth(), year:d.getFullYear(),
-      dow:d.getDay(),
-      evs:getEventsForDay(d.getDate()),
+      day: d.getDate(),
+      month: d.getMonth(),
+      year: d.getFullYear(),
+      dow: d.getDay(),
+      evs: getEventsForDay(d.getDate()),
     };
   });
 
   return(
     <div style={{padding:14}}>
-      <div style={{fontSize:13,fontWeight:800,color:COLORS.navy,marginBottom:10}}>🗓️ 日付を選んでマップで確認</div>
+      <div style={{fontSize:13,fontWeight:800,color:COLORS.navy,marginBottom:10}}>
+        🗓️ 日付を選んでマップで確認
+      </div>
+
+      {/* 日付選択バー */}
       <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:12}}>
-        {eventDays.map(({day,month,year,dow,evs})=>{
-          const isActive=mapDate===day&&month===currentMonth;
+        {dateButtons.map(({day,month,year,dow,evs})=>{
+          const isActive = mapDate===day && month===currentMonth;
           return(
             <button key={`${year}${month}${day}`}
               onClick={()=>setMapDate(isActive?null:day)} style={{
               minWidth:50,padding:'8px 0',borderRadius:12,border:'none',
               background:isActive?COLORS.coral:evs.length>0?'#FFF0F3':COLORS.lightGray,
               color:isActive?COLORS.white:evs.length>0?COLORS.coral:COLORS.gray,
-              fontWeight:700,fontSize:13,cursor:'pointer',
+              fontWeight:700,fontSize:13,cursor:'pointer',flexShrink:0,
               boxShadow:isActive?`0 3px 10px rgba(255,107,107,0.3)`:'none'}}>
               <div style={{fontSize:9,marginBottom:2}}>{DAY_NAMES[dow]}</div>
               {day}
@@ -468,21 +480,32 @@ function MapView({currentYear,currentMonth,getEventsForDay,mapDate,setMapDate,
         })}
       </div>
 
-      {/* Google Maps Embed */}
+      {/* Google Maps */}
       <div style={{borderRadius:18,overflow:'hidden',marginBottom:14,
-        border:`2px solid ${COLORS.sky}`,height:280,background:'#E8F4F8',position:'relative'}}>
-        {mapSrc?(
-          <iframe src={mapSrc} width="100%" height="280" style={{border:0}} allowFullScreen loading="lazy"/>
-        ):(
-          <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',
-            justifyContent:'center',flexDirection:'column',gap:6}}>
-            <div style={{fontSize:36}}>📍</div>
-            <div style={{fontSize:12,fontWeight:600,color:COLORS.gray}}>日付を選ぶとイベントが表示されます</div>
+        border:`2px solid ${COLORS.sky}`,background:'#E8F4F8',position:'relative'}}>
+        {mapSrc ? (
+          <iframe
+            src={mapSrc}
+            width="100%"
+            height="300"
+            style={{border:0,display:'block'}}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        ) : (
+          <div style={{height:300,display:'flex',alignItems:'center',
+            justifyContent:'center',flexDirection:'column',gap:8}}>
+            <div style={{fontSize:40}}>📍</div>
+            <div style={{fontSize:12,fontWeight:600,color:COLORS.gray,textAlign:'center',padding:'0 20px'}}>
+              上の日付を選ぶと<br/>イベント会場がマップに表示されます
+            </div>
           </div>
         )}
       </div>
 
-      {mapDate&&mapEvents.length>0&&(
+      {/* 選択日のイベント一覧 */}
+      {mapDate && mapEvents.length > 0 && (
         <>
           <div style={{fontSize:12,fontWeight:800,color:COLORS.navy,marginBottom:8}}>
             {currentMonth+1}月{mapDate}日のイベント（{mapEvents.length}件）
@@ -493,7 +516,7 @@ function MapView({currentYear,currentMonth,getEventsForDay,mapDate,setMapDate,
           ))}
         </>
       )}
-      {mapDate&&mapEvents.length===0&&(
+      {mapDate && mapEvents.length === 0 && (
         <div style={{textAlign:'center',padding:'30px 0',color:COLORS.gray}}>
           <div style={{fontSize:28,marginBottom:8}}>🔍</div>
           <div style={{fontWeight:600,fontSize:13}}>この日のイベントはありません</div>
@@ -503,7 +526,6 @@ function MapView({currentYear,currentMonth,getEventsForDay,mapDate,setMapDate,
   );
 }
 
-// ─── お気に入りビュー ────────────────────────────────────
 function FavoritesView({favEvents,favorites,toggleFav,setShowDetail}){
   return(
     <div style={{padding:14}}>
@@ -522,7 +544,6 @@ function FavoritesView({favEvents,favorites,toggleFav,setShowDetail}){
   );
 }
 
-// ─── 詳細モーダル ────────────────────────────────────────
 function DetailModal({event,favorites,toggleFav,onClose}){
   const isFav=favorites.includes(event.id);
   const targetInfo=TARGET_OPTIONS.find(t=>t.value===event.target);
@@ -543,10 +564,25 @@ function DetailModal({event,favorites,toggleFav,onClose}){
           <Tag color={targetInfo?.color||COLORS.gray}>{targetInfo?.label||'全員'}</Tag>
           <Tag color={event.indoor?COLORS.sakura:'#7BBF6A'}>{event.indoor?'🏠 屋内':'🌿 屋外'}</Tag>
         </div>
-        <InfoRow icon="📅" label="日時" value={`${event.date}${event.endDate?'〜'+event.endDate:''} ${event.startTime||''}${event.endTime?'〜'+event.endTime:''}`}/>
+        <InfoRow icon="📅" label="日時" value={`${event.date}${event.endDate?' 〜 '+event.endDate:''} ${event.startTime||''}${event.endTime?' 〜 '+event.endTime:''}`}/>
         <InfoRow icon="📍" label="場所" value={event.place}/>
         {event.url&&<InfoRow icon="🔗" label="詳細URL" value={event.url} link/>}
-        <div style={{display:'flex',gap:8,marginTop:16}}>
+
+        {/* ミニマップ */}
+        {event.lat && event.lng && (
+          <div style={{borderRadius:12,overflow:'hidden',marginBottom:12,border:`1px solid ${COLORS.lightGray}`}}>
+            <iframe
+              src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&q=${event.lat},${event.lng}&zoom=15&language=ja`}
+              width="100%"
+              height="150"
+              style={{border:0,display:'block'}}
+              allowFullScreen
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        <div style={{display:'flex',gap:8,marginTop:8}}>
           <button onClick={()=>toggleFav(event.id)} style={{
             flex:1,padding:12,borderRadius:12,border:'none',
             background:isFav?'#FFF0F0':COLORS.lightGray,
@@ -566,7 +602,6 @@ function DetailModal({event,favorites,toggleFav,onClose}){
   );
 }
 
-// ─── 共通コンポーネント ──────────────────────────────────
 function EventCard({event,favorites,onFavorite,onDetail}){
   const isFav=favorites.includes(event.id);
   const targetInfo=TARGET_OPTIONS.find(t=>t.value===event.target);
@@ -650,9 +685,8 @@ function LoadingView(){
   return(
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
       padding:'80px 0',gap:16,color:COLORS.gray}}>
-      <div style={{fontSize:48,animation:'spin 1s linear infinite'}}>🗓️</div>
+      <div style={{fontSize:48}}>🗓️</div>
       <div style={{fontWeight:600,fontSize:14}}>イベント情報を読み込み中...</div>
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

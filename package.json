@@ -2,10 +2,12 @@
   "name": "tokyo-events-calendar",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "geocode": "node --env-file=.env.local lib/geocode-update.js"
   },
   "dependencies": {
     "next": "14.2.3",
