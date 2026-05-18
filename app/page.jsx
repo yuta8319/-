@@ -428,7 +428,7 @@ function MapView({currentYear,currentMonth,getEventsForDay,mapDate,setMapDate,
 
     if (evWithCoords.length === 1) {
       // 1件の場合はその場所を中心に表示
-      return `https://www.google.com/maps/embed/v1/place?key=${mapsKey}&q=${evWithCoords[0].lat},${evWithCoords[0].lng}&zoom=15&language=ja`;
+      return `https://www.google.com/maps/embed/v1/place?key=${mapsKey}&q=${evWithCoords[0].lat},${evWithCoords[0].lng}&zoom=13&language=ja`;
     } else if (evWithCoords.length > 1) {
       // 複数件の場合は検索で表示
       const query = encodeURIComponent(evWithCoords.map(e => e.place).join(' OR '));
@@ -572,7 +572,7 @@ function DetailModal({event,favorites,toggleFav,onClose}){
         {event.lat && event.lng && (
           <div style={{borderRadius:12,overflow:'hidden',marginBottom:12,border:`1px solid ${COLORS.lightGray}`}}>
             <iframe
-              src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&q=${event.lat},${event.lng}&zoom=15&language=ja`}
+              src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&q=${event.lat},${event.lng}&zoom=13&language=ja`}
               width="100%"
               height="150"
               style={{border:0,display:'block'}}
