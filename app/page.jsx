@@ -428,7 +428,7 @@ function MapView({currentYear,currentMonth,getEventsForDay,mapDate,setMapDate,
 
     if (evWithCoords.length === 1) {
       // 1件の場合はその場所を中心に表示
-      return `https://www.google.com/maps/embed/v1/place?key=${mapsKey}&q=${evWithCoords[0].lat},${evWithCoords[0].lng}&zoom=13&language=ja`;
+      return `https://www.google.com/maps/embed/v1/place?key=${mapsKey}&q=${evWithCoords[0].lat},${evWithCoords[0].lng}&zoom=10&language=ja`;
     } else if (evWithCoords.length > 1) {
       // 複数件の場合は検索で表示
       const query = encodeURIComponent(evWithCoords.map(e => e.place).join(' OR '));
