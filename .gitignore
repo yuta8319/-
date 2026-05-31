@@ -10,3 +10,8 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+service-account.json
+tokyofesta_debug.html
+lib/import*
+lib/test-crawl.js
