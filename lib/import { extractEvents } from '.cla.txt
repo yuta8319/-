@@ -1,0 +1,26 @@
+import { extractEvents } from './claude.js';
+
+const TEST_URL = 'https://eventbank.jp/area/13/';
+
+async function test() {
+  console.log('🔍 テスト収集開始...');
+  
+  const res = await fetch(TEST_URL, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept-Language': 'ja,en;q=0.9',
+    }
+  });
+  
+  const html = await res.text();
+  console.log(`📄 HTML取得完了: ${html.length}文字`);
+  console.log('--- HTML先頭500文字 ---');
+  console.log(html.slice(0, 500));
+  console.log('--- ここまで ---');
+  
+  const events = await extractEvents(html, 'eventbank東京');
+  console.log(`✅ 抽出結果: ${events.length}件`);
+  if(events.length > 0) console.log(JSON.stringify(events.slice(0,3), null, 2));
+}
+
+test().catch(console.error);

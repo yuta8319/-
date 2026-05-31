@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "geocode": "node --env-file=.env.local lib/geocode-update.js"
+    "geocode": "node --env-file=.env.local lib/geocode-update.js",
+"test-crawl": "node --env-file=.env.local lib/test-crawl.js"
   },
   "dependencies": {
     "next": "14.2.3",
