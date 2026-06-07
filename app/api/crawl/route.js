@@ -39,7 +39,7 @@ async function extractChunk(client, text) {
   const s = clean.indexOf('[');
   const e = clean.lastIndexOf(']');
   if (s === -1 || e === -1) return [];
-  try { return JSON.parse(clean.slice(s, e + 1)); } catch(err) { return []; }
+  try { return JSON.parse(clean.slice(s, e + 1)); } catch(err) { console.log('parse_error:', err.message); console.log('raw_response:', raw.slice(0, 500)); return []; }
 }
 
 async function geocode(placeName) {
