@@ -1,7 +1,7 @@
 {
   "name": "おでかけカレンダー",
   "short_name": "イベントナビ",
-  "description": "東京23区のイベントをカレンダーで確認",
+  "description": "東京のイベントをカレンダーで確認",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFF8F2",
