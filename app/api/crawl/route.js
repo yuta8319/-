@@ -30,7 +30,7 @@ async function extractChunk(client, text) {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 8192,
-    messages: [{ role: 'user', content: `以下はイベントタイトルの一覧です。JSONのみ返してください。コードブロックなし、タグなし、テキストのみ。東京から区を推測。日付はYYYY/MM/DD形式。\n\n[{"name":"","area":"区","date":"2026/MM/DD","endDate":"","place":"","category":"festival","target":"all","free":false,"indoor":false,"tag":"festival","url":""}]\n\n` + text }],
+    messages: [{ role: 'user', content: `以下のイベント一覧をJSON配列に変換してください。JSONのみ返してください。コードブロック不要。各イベントについてname・area・date・endDate・place・category・target・free・indoor・tag・urlを含めること。areaは東京の区名。dateはYYYY/MM/DD形式。categoryはfestival/market/music/food/culture/sportsのいずれか。targetはall/kids/adult。freeはtrue/false。indoorはtrue/false。urlは空文字。\n\nイベント一覧:\n` + text }],
   });
   let raw = response.content[0].text.trim();
   let clean = '';
