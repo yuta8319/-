@@ -71,7 +71,7 @@ export async function GET(request) {
     console.log('headings:', headings.length);
     const half = Math.ceil(headings.length / 2);
     const e1 = await extractChunk(client, headings.slice(0, half).join('\n'));
-    console.log('c1:', e1.length);
+    console.log('c1:', e1.length); console.log('chunk1_input:', headings.slice(0, half).join(' | '));
     await new Promise(r => setTimeout(r, 1000));
     const e2 = await extractChunk(client, headings.slice(half).join('\n'));
     console.log('c2:', e2.length);
