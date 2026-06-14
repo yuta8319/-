@@ -93,22 +93,6 @@ async function geocode(placeName) {
   return { lat: null, lng: null };
 }
 
-async function searchUrl(eventName) {
-  if (!eventName) return '';
-  try {
-    const q = encodeURIComponent(eventName + ' 東京 公式');
-    const res = await fetch(
-      'https://www.googleapis.com/customsearch/v1?q=' + q +
-      '&key=' + process.env.GOOGLE_CUSTOM_SEARCH_KEY +
-      '&cx=' + process.env.GOOGLE_CUSTOM_SEARCH_CX +
-      '&num=1'
-    );
-    const data = await res.json();
-    if (data.items && data.items.length > 0) return data.items[0].link;
-  } catch(e) {}
-  return '';
-}
-
 export async function GET(request) {
   const isVercelCron = request.headers.get('x-vercel-cron') === '1';
   const auth = request.headers.get('authorization');
@@ -148,11 +132,9 @@ export async function GET(request) {
   const final = [];
   for (const ev of newEvs) {
     const c = await geocode(ev.place + ' ' + ev.area);
-    const url = await searchUrl(ev.name);
-    await new Promise(r => setTimeout(r, 500));
     final.push({
       ...ev,
-      url,
+      url: '',
       lat: c.lat,
       lng: c.lng,
       id: 'ev' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
