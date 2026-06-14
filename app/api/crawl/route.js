@@ -13,7 +13,7 @@ async function scrapeHeadings(url) {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return [];
     const html = await res.text();
@@ -22,14 +22,14 @@ async function scrapeHeadings(url) {
       const text = match[1].replace(/<[^>]+>/g, '').trim();
       if (text.length > 5) headings.push(text);
     }
-    return headings;
+    return headings.slice(0, 30);
   } catch(e) { return []; }
 }
 
-async function extractChunk(client, text) {
+async function extractEvents(client, text) {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
-    max_tokens: 8192,
+    max_tokens: 4096,
     messages: [{ role: 'user', content: `以下のイベント一覧をJSON配列に変換してください。JSONのみ返してください。コードブロック不要。
 
 各イベントについて以下のフィールドを含めること：
@@ -43,30 +43,7 @@ async function extractChunk(client, text) {
 - free: true/false
 - indoor: true/false
 - tag: 以下の絵文字から内容に最も合うものを必ず1つ選ぶ
-  🌸=花見・春イベント
-  🎆=花火大会
-  🎵=音楽・ライブ
-  🍜=グルメ・フード
-  🎨=アート・工作
-  ⚽=スポーツ
-  🌊=海・水辺
-  📚=学び・読書
-  🌙=夜・ナイト
-  ⛩️=神社・祭り
-  🌿=縁日・癒し
-  🎷=ジャズ・音楽
-  🍺=ビール・グルメ
-  🍷=ワイン・大人
-  🥬=マルシェ・野菜
-  ✈️=航空・乗り物
-  🎌=アニメ・文化
-  🔬=科学・学習
-  🎉=お祭り全般
-  🐟=動物・自然
-  🍻=クラフトビール
-  🐰=ふれあい動物
-  🧺=ピクニック
-  🎺=ブラス・音楽
+  🌸=花見・春イベント、🎆=花火大会、🎵=音楽・ライブ、🍜=グルメ・フード、🎨=アート・工作、⚽=スポーツ、🌊=海・水辺、📚=学び・読書、🌙=夜・ナイト、⛩️=神社・祭り、🌿=縁日・癒し、🎷=ジャズ・音楽、🍺=ビール・グルメ、🍷=ワイン・大人、🥬=マルシェ・野菜、✈️=航空・乗り物、🎌=アニメ・文化、🔬=科学・学習、🎉=お祭り全般、🐟=動物・自然、🍻=クラフトビール、🐰=ふれあい動物、🧺=ピクニック、🎺=ブラス・音楽
 - url: 空文字
 
 イベント一覧:
@@ -86,7 +63,7 @@ async function geocode(placeName) {
   if (!placeName) return { lat: null, lng: null };
   try {
     const q = encodeURIComponent(placeName + ' 東京');
-    const res = await fetch('https://maps.googleapis.com/maps/api/geocode/json?address=' + q + '&key=' + process.env.GOOGLE_GEOCODING_KEY + '&language=ja');
+    const res = await fetch('https://maps.googleapis.com/maps/api/geocode/json?address=' + q + '&key=' + process.env.GOOGLE_GEOCODING_KEY + '&language=ja&region=jp');
     const data = await res.json();
     if (data.status === 'OK') return data.results[0].geometry.location;
   } catch(e) {}
@@ -116,18 +93,12 @@ export async function GET(request) {
   }
   console.log('headings:', headings.length);
 
-  const half = Math.ceil(headings.length / 2);
-  const e1 = await extractChunk(client, headings.slice(0, half).join('\n'));
-  console.log('c1:', e1.length);
-  await new Promise(r => setTimeout(r, 1000));
-  const e2 = await extractChunk(client, headings.slice(half).join('\n'));
-  console.log('c2:', e2.length);
-  const results = [...e1, ...e2];
+  const results = await extractEvents(client, headings.join('\n'));
+  console.log('extracted:', results.length);
 
   const unique = results.filter((ev, i, self) =>
     i === self.findIndex(e => e.name === ev.name && e.date === ev.date)
   );
-  console.log('unique:', unique.length);
 
   const existingEvents = await getExistingEvents();
   const existingKeys = new Set(existingEvents.map(e => e.name + '_' + e.date));
@@ -135,7 +106,7 @@ export async function GET(request) {
   console.log('new:', newEvs.length);
 
   const final = [];
-  for (const ev of newEvs) {
+  for (const ev of newEvs.slice(0, 10)) {
     const c = await geocode(ev.place + ' ' + ev.area);
     final.push({
       ...ev,
