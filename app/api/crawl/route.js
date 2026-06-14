@@ -22,32 +22,15 @@ async function scrapeHeadings(url) {
       const text = match[1].replace(/<[^>]+>/g, '').trim();
       if (text.length > 5) headings.push(text);
     }
-    return headings.slice(0, 30);
+    return headings.slice(0, 15);
   } catch(e) { return []; }
 }
 
 async function extractEvents(client, text) {
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: `以下のイベント一覧をJSON配列に変換してください。JSONのみ返してください。コードブロック不要。
-
-各イベントについて以下のフィールドを含めること：
-- name: イベント名
-- area: 東京の区名（例：渋谷区、新宿区）
-- date: YYYY/MM/DD形式の開始日
-- endDate: YYYY/MM/DD形式の終了日（不明なら空文字）
-- place: 会場名
-- category: 以下から必ず1つ選ぶ → festival/fireworks/music/food/art/sport/nature/learn/nightlife
-- target: 以下から必ず1つ選ぶ → all/kids/adult/family/senior
-- free: true/false
-- indoor: true/false
-- tag: 以下の絵文字から内容に最も合うものを必ず1つ選ぶ
-  🌸=花見・春イベント、🎆=花火大会、🎵=音楽・ライブ、🍜=グルメ・フード、🎨=アート・工作、⚽=スポーツ、🌊=海・水辺、📚=学び・読書、🌙=夜・ナイト、⛩️=神社・祭り、🌿=縁日・癒し、🎷=ジャズ・音楽、🍺=ビール・グルメ、🍷=ワイン・大人、🥬=マルシェ・野菜、✈️=航空・乗り物、🎌=アニメ・文化、🔬=科学・学習、🎉=お祭り全般、🐟=動物・自然、🍻=クラフトビール、🐰=ふれあい動物、🧺=ピクニック、🎺=ブラス・音楽
-- url: 空文字
-
-イベント一覧:
-` + text }],
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2048,
+    messages: [{ role: 'user', content: `以下のイベント一覧をJSON配列に変換。JSONのみ返す。コードブロック不要。フィールド：name・area（東京の区名）・date（YYYY/MM/DD）・endDate・place・category（festival/fireworks/music/food/art/sport/nature/learn/nightlifeから1つ）・target（all/kids/adult/family/seniorから1つ）・free（true/false）・indoor（true/false）・tag（🌸🎆🎵🍜🎨⚽🌊📚🌙⛩️🌿🎷🍺🍷🥬✈️🎌🔬🎉🐟🍻🐰🧺🎺から1つ）・url（空文字）\n\nイベント一覧:\n` + text }],
   });
   let raw = response.content[0].text.trim();
   let clean = '';
@@ -106,7 +89,7 @@ export async function GET(request) {
   console.log('new:', newEvs.length);
 
   const final = [];
-  for (const ev of newEvs.slice(0, 10)) {
+  for (const ev of newEvs.slice(0, 5)) {
     const c = await geocode(ev.place + ' ' + ev.area);
     final.push({
       ...ev,
