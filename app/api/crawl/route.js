@@ -1,5 +1,5 @@
 ﻿import Anthropic from '@anthropic-ai/sdk';
-import { getExistingUrls, appendEvents } from '@/lib/sheets';
+import { getExistingEvents, appendEvents } from '@/lib/sheets';
 
 export const maxDuration = 60;
 
@@ -30,7 +30,47 @@ async function extractChunk(client, text) {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 8192,
-    messages: [{ role: 'user', content: `以下のイベント一覧をJSON配列に変換してください。JSONのみ返してください。コードブロック不要。各イベントについてname・area・date・endDate・place・category・target・free・indoor・tag・urlを含めること。areaは東京の区名。dateはYYYY/MM/DD形式。categoryはfestival/market/music/food/culture/sportsのいずれか。targetはall/kids/adult。freeはtrue/false。indoorはtrue/false。urlは空文字。\n\nイベント一覧:\n` + text }],
+    messages: [{ role: 'user', content: `以下のイベント一覧をJSON配列に変換してください。JSONのみ返してください。コードブロック不要。
+
+各イベントについて以下のフィールドを含めること：
+- name: イベント名
+- area: 東京の区名（例：渋谷区、新宿区）
+- date: YYYY/MM/DD形式の開始日
+- endDate: YYYY/MM/DD形式の終了日（不明なら空文字）
+- place: 会場名
+- category: 以下から必ず1つ選ぶ → festival/fireworks/music/food/art/sport/nature/learn/nightlife
+- target: 以下から必ず1つ選ぶ → all/kids/adult/family/senior
+- free: true/false
+- indoor: true/false
+- tag: 以下の絵文字から内容に最も合うものを必ず1つ選ぶ
+  🌸=花見・春イベント
+  🎆=花火大会
+  🎵=音楽・ライブ
+  🍜=グルメ・フード
+  🎨=アート・工作
+  ⚽=スポーツ
+  🌊=海・水辺
+  📚=学び・読書
+  🌙=夜・ナイト
+  ⛩️=神社・祭り
+  🌿=縁日・癒し
+  🎷=ジャズ・音楽
+  🍺=ビール・グルメ
+  🍷=ワイン・大人
+  🥬=マルシェ・野菜
+  ✈️=航空・乗り物
+  🎌=アニメ・文化
+  🔬=科学・学習
+  🎉=お祭り全般
+  🐟=動物・自然
+  🍻=クラフトビール
+  🐰=ふれあい動物
+  🧺=ピクニック
+  🎺=ブラス・音楽
+- url: 空文字
+
+イベント一覧:
+` + text }],
   });
   let raw = response.content[0].text.trim();
   let clean = '';
@@ -51,6 +91,22 @@ async function geocode(placeName) {
     if (data.status === 'OK') return data.results[0].geometry.location;
   } catch(e) {}
   return { lat: null, lng: null };
+}
+
+async function searchUrl(eventName) {
+  if (!eventName) return '';
+  try {
+    const q = encodeURIComponent(eventName + ' 東京 公式');
+    const res = await fetch(
+      'https://www.googleapis.com/customsearch/v1?q=' + q +
+      '&key=' + process.env.GOOGLE_CUSTOM_SEARCH_KEY +
+      '&cx=' + process.env.GOOGLE_CUSTOM_SEARCH_CX +
+      '&num=1'
+    );
+    const data = await res.json();
+    if (data.items && data.items.length > 0) return data.items[0].link;
+  } catch(e) {}
+  return '';
 }
 
 export async function GET(request) {
@@ -84,14 +140,19 @@ export async function GET(request) {
   );
   console.log('unique:', unique.length);
 
-  const existing = await getExistingUrls();
-  const newEvs = unique.filter(ev => !ev.url || !existing.includes(ev.url));
+  const existingEvents = await getExistingEvents();
+  const existingKeys = new Set(existingEvents.map(e => e.name + '_' + e.date));
+  const newEvs = unique.filter(ev => !existingKeys.has(ev.name + '_' + ev.date));
+  console.log('new:', newEvs.length);
 
   const final = [];
   for (const ev of newEvs) {
     const c = await geocode(ev.place + ' ' + ev.area);
+    const url = await searchUrl(ev.name);
+    await new Promise(r => setTimeout(r, 500));
     final.push({
       ...ev,
+      url,
       lat: c.lat,
       lng: c.lng,
       id: 'ev' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
