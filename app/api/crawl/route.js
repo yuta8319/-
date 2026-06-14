@@ -100,24 +100,29 @@ export async function GET(request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  console.log('tokyofesta crawl start:', new Date().toISOString());
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const results = [];
-
-  for (const src of SOURCES) {
-    console.log('src:', src.name);
-    const headings = await scrapeHeadings(src.url);
-    if (headings.length === 0) continue;
-    console.log('headings:', headings.length);
-    const half = Math.ceil(headings.length / 2);
-    const e1 = await extractChunk(client, headings.slice(0, half).join('\n'));
-    console.log('c1:', e1.length);
-    await new Promise(r => setTimeout(r, 1000));
-    const e2 = await extractChunk(client, headings.slice(half).join('\n'));
-    console.log('c2:', e2.length);
-    results.push(...e1, ...e2);
-    await new Promise(r => setTimeout(r, 1000));
+  const { searchParams } = new URL(request.url);
+  const sourceIndex = parseInt(searchParams.get('source') || '0');
+  const src = SOURCES[sourceIndex];
+  if (!src) {
+    return Response.json({ error: 'Invalid source index' }, { status: 400 });
   }
+
+  console.log('crawl start:', src.name, new Date().toISOString());
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const headings = await scrapeHeadings(src.url);
+  if (headings.length === 0) {
+    return Response.json({ success: true, fetched: 0, added: 0 });
+  }
+  console.log('headings:', headings.length);
+
+  const half = Math.ceil(headings.length / 2);
+  const e1 = await extractChunk(client, headings.slice(0, half).join('\n'));
+  console.log('c1:', e1.length);
+  await new Promise(r => setTimeout(r, 1000));
+  const e2 = await extractChunk(client, headings.slice(half).join('\n'));
+  console.log('c2:', e2.length);
+  const results = [...e1, ...e2];
 
   const unique = results.filter((ev, i, self) =>
     i === self.findIndex(e => e.name === ev.name && e.date === ev.date)
@@ -145,5 +150,5 @@ export async function GET(request) {
 
   const added = await appendEvents(final);
   console.log('added:', added);
-  return Response.json({ success: true, fetched: results.length, added, timestamp: new Date().toISOString() });
+  return Response.json({ success: true, source: src.name, fetched: results.length, added, timestamp: new Date().toISOString() });
 }
